@@ -1,84 +1,79 @@
-import { TranslationEngine } from './translation/core/TranslationEngine';
-import { TranslationResult } from './translation/strategies/ITranslationStrategy';
+import axios from "axios";
+import { DEEPL_API_KEY } from "./secrets";
 
-/**
- * 번역 서비스 - Facade 패턴
- * 기존 인터페이스와 호환성을 유지하면서 새로운 아키텍처를 사용
- */
 export class TranslationService {
-  private engine: TranslationEngine;
+  private cache: Map<string, string> = new Map();
 
-  constructor() {
-    this.engine = new TranslationEngine();
-  }
+  constructor() {}
 
-  /**
-   * 영어 텍스트를 한국어로 번역 (기존 호환 메서드)
-   */
   async translate(text: string): Promise<string> {
-    const result = await this.engine.translate(text);
-    return result.translatedText;
+    if (!text || !text.trim()) return "";
+
+    if (this.cache.has(text)) {
+      return this.cache.get(text)!;
+    }
+
+    // [수정] 복잡한 설정 로직 제거하고 상수 직접 사용
+    const apiKey = DEEPL_API_KEY;
+
+    if (!apiKey || apiKey.trim() === "" || apiKey.includes("여기에_발급받은")) {
+      return "DeepL API 키가 설정되지 않았습니다 (secrets.ts 확인 필요)";
+    }
+
+    try {
+      const isFreeTier = apiKey.endsWith(":fx");
+      const baseUrl = isFreeTier 
+        ? "https://api-free.deepl.com/v2/translate" 
+        : "https://api.deepl.com/v2/translate";
+
+      const response = await axios.post(
+        baseUrl,
+        {
+            text: [text],
+            target_lang: "KO"
+        },
+        {
+          headers: {
+            'Authorization': `DeepL-Auth-Key ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 5000
+        }
+      );
+
+      if (response.data && response.data.translations && response.data.translations[0]) {
+        const translatedText = response.data.translations[0].text;
+        this.cache.set(text, translatedText);
+        return translatedText;
+      }
+
+    } catch (error: any) {
+      console.error("DeepL Translation Failed:", error);
+      if (error.response?.status === 403) {
+        return "API 키 오류 (secrets.ts 확인)";
+      }
+      return `${text} (번역 실패)`;
+    }
+
+    return text;
   }
 
-  /**
-   * 상세한 번역 결과 반환
-   */
-  async translateDetailed(text: string): Promise<TranslationResult> {
-    return await this.engine.translate(text);
-  }
-
-  /**
-   * 특정 전략을 사용하여 번역
-   */
-  async translateWithStrategy(text: string, strategy: string): Promise<TranslationResult> {
-    return await this.engine.translateWithStrategy(text, strategy);
-  }
-
-  /**
-   * 주석 번역
-   */
-  async translateComment(comment: string): Promise<TranslationResult> {
-    return await this.engine.translateComment(comment);
-  }
-
-  /**
-   * 사용 가능한 번역 전략 목록
-   */
-  getAvailableStrategies(text: string): string[] {
-    return this.engine.getAvailableStrategies(text);
-  }
-
-  /**
-   * 캐시 초기화
-   */
   public clearCache(): void {
-    this.engine.clearCache();
+    this.cache.clear();
   }
 
-  /**
-   * 캐시 상태 확인 (개발용)
-   */
   public logCacheStatus(): void {
-    this.engine.logCacheStatus();
+    console.log(`Cache Size: ${this.cache.size}`);
   }
 
-  /**
-   * 캐시 상태 반환
-   */
-  public getCacheStatus(): { size: number; requestCount: number } {
-    return this.engine.getCacheStatus();
-  }
-
-  /**
-   * 주석에서 영어 텍스트 추출 (기존 호환 메서드)
-   */
-  extractEnglishFromComment(comment: string): string {
-    // TextValidator를 직접 사용하지 않고 translateComment의 결과로 판단
+  public extractEnglishFromComment(comment: string): string {
     return comment
-      .replace(/^\/\/\s*/, "")
-      .replace(/^\/\*\*?\s*/, "")
-      .replace(/\*\/\s*$/, "")
-      .replace(/^\*\s*/, "")
+      .replace(/^\/\/\s*/, "")        
+      .replace(/^\/\*\*?\s*/, "")     
+      .replace(/\*\/\s*$/, "")        
+      .replace(/^\*\s*/gm, "")        
+      .replace(/^['"]{3}/, "")        
+      .replace(/['"]{3}$/, "")        
       .trim();
   }
-} 
+}

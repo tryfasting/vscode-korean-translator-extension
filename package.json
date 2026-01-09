@@ -45,19 +45,7 @@
     "theme": "dark"
   },
   "activationEvents": [
-    "onLanguage:javascript",
-    "onLanguage:typescript",
-    "onLanguage:java",
-    "onLanguage:python",
-    "onLanguage:go",
-    "onLanguage:rust",
-    "onLanguage:cpp",
-    "onLanguage:c",
-    "onLanguage:csharp",
-    "onLanguage:php",
-    "onLanguage:ruby",
-    "onLanguage:swift",
-    "onLanguage:kotlin"
+    "*"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -102,46 +90,12 @@
         "korean-translator.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "호버 번역 기능 활성화/비활성화"
-        },
-        "korean-translator.autoTranslateComments": {
-          "type": "boolean",
-          "default": true,
-          "description": "주석 자동 번역 활성화/비활성화"
-        },
-        "korean-translator.autoTranslateVariables": {
-          "type": "boolean",
-          "default": true,
-          "description": "변수명 자동 번역 활성화/비활성화"
-        },
-        "korean-translator.minimumWordLength": {
-          "type": "number",
-          "default": 3,
-          "minimum": 1,
-          "maximum": 10,
-          "description": "번역할 최소 단어 길이"
+          "description": "확장 프로그램 활성화 여부"
         },
         "korean-translator.debounceDelay": {
           "type": "number",
-          "default": 300,
-          "minimum": 100,
-          "maximum": 1000,
-          "description": "호버 디바운스 지연 시간 (밀리초)"
-        },
-        "korean-translator.openaiApiKey": {
-          "type": "string",
-          "default": "",
-          "markdownDescription": "OpenAI GPT API 키 (선택사항)\n\n**API 키 입력 후 아래 링크를 클릭하세요:**\n\n[📋 GPT 설정 완료 및 재시작](command:korean-translator.setupGPT)"
-        },
-        "korean-translator.gptModel": {
-          "type": "string",
-          "default": "gpt-4o-mini",
-          "enum": [
-            "gpt-4o-mini",
-            "gpt-4o",
-            "gpt-3.5-turbo"
-          ],
-          "description": "사용할 GPT 모델"
+          "default": 100,
+          "description": "호버 번역 대기 시간 (ms)"
         }
       }
     }

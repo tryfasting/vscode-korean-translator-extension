@@ -22,3 +22,6 @@ coverage/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# api key
+src/secrets.ts

@@ -12,48 +12,38 @@ export class HoverProvider implements vscode.HoverProvider {
     position: vscode.Position,
     token: vscode.CancellationToken
   ): Promise<vscode.Hover | null> {
-    // 설정 확인
+    
+    // 1. 설정 확인
     const config = vscode.workspace.getConfiguration("korean-translator");
-    const enabled = config.get("enabled", true);
+    if (!config.get("enabled", true)) return null;
 
-    if (!enabled) {
-      return null;
-    }
+    // 2. 주석 범위 감지 (개선된 로직)
+    const commentRange = this.getCommentRangeAtPosition(document, position);
 
-    const line = document.lineAt(position);
-    const lineText = line.text;
+    if (commentRange) {
+      const commentText = document.getText(commentRange);
+      
+      // 주석 기호 제거
+      const englishText = this.translationService.extractEnglishFromComment(commentText);
 
-    // 주석 감지
-    const commentMatch = this.detectComment(lineText, position.character);
-    if (commentMatch) {
-      const englishText = this.translationService.extractEnglishFromComment(
-        commentMatch.text
-      );
       if (englishText) {
-        // 디바운싱 체크
-        if (!this.shouldTranslate(englishText)) {
-          return null;
-        }
+        // 속도 최적화 (50ms)
+        if (!this.shouldTranslate(englishText, 50)) return null;
 
-        const translation = await this.translationService.translate(
-          englishText
-        );
-        return this.createHoverMarkdown(englishText, translation, "주석");
+        const translation = await this.translationService.translate(englishText);
+        return this.createHoverMarkdown(englishText, translation, "주석/Docstring");
       }
     }
 
-    // 변수명/함수명 감지
+    // 3. (주석이 아닐 때만) 변수명/함수명 감지
     const wordRange = document.getWordRangeAtPosition(position);
     if (wordRange) {
       const word = document.getText(wordRange);
 
-      // 영어 단어인지 확인 (최소 3글자 이상의 영어)
+      // 영어 단어이고 3글자 이상인 경우
       if (this.isEnglishWord(word) && word.length >= 3) {
-        // 디바운싱 체크
-        if (!this.shouldTranslate(word)) {
-          return null;
-        }
-
+        if (!this.shouldTranslate(word, 100)) return null;
+        
         const translation = await this.translationService.translate(word);
         if (translation !== word) {
           return this.createHoverMarkdown(word, translation, "변수/함수명");
@@ -64,95 +54,58 @@ export class HoverProvider implements vscode.HoverProvider {
     return null;
   }
 
-  // 디바운싱 체크 함수
-  private shouldTranslate(text: string): boolean {
-    const now = Date.now();
-    const config = vscode.workspace.getConfiguration("korean-translator");
-    const debounceDelay = config.get("debounceDelay", 300);
+  /**
+   * 주석 범위 탐지 로직 (Global Regex)
+   */
+  private getCommentRangeAtPosition(
+    document: vscode.TextDocument, 
+    position: vscode.Position
+  ): vscode.Range | null {
+    const docText = document.getText();
+    const offset = document.offsetAt(position);
 
-    // 같은 텍스트이고 설정된 시간 이내라면 번역하지 않음
-    if (
-      this.lastHoverText === text &&
-      now - this.lastHoverTime < debounceDelay
-    ) {
-      return false;
-    }
+    // 정규식: """...""" | '''...''' | #... | //... | /*...*/
+    const regex = /("""[\s\S]*?"""|'''[\s\S]*?'''|#[^\n]*|\/\/[^\n]*|\/\*[\s\S]*?\*\/)/g;
 
-    // 디바운싱 정보 업데이트
-    this.lastHoverTime = now;
-    this.lastHoverText = text;
+    let match;
+    while ((match = regex.exec(docText)) !== null) {
+        const start = match.index;
+        const end = match.index + match[0].length;
 
-    return true;
-  }
-
-  private detectComment(
-    lineText: string,
-    characterPosition: number
-  ): { text: string; start: number; end: number } | null {
-    // 한줄 주석 (//) 감지
-    const singleLineCommentIndex = lineText.indexOf("//");
-    if (
-      singleLineCommentIndex !== -1 &&
-      characterPosition >= singleLineCommentIndex
-    ) {
-      return {
-        text: lineText.substring(singleLineCommentIndex),
-        start: singleLineCommentIndex,
-        end: lineText.length,
-      };
-    }
-
-    // 파이썬 주석 (#) 감지
-    const pythonCommentIndex = lineText.indexOf("#");
-    if (pythonCommentIndex !== -1 && characterPosition >= pythonCommentIndex) {
-      return {
-        text: lineText.substring(pythonCommentIndex),
-        start: pythonCommentIndex,
-        end: lineText.length,
-      };
-    }
-
-    // 블록 주석 (/* */) 감지
-    const blockCommentStart = lineText.indexOf("/*");
-    const blockCommentEnd = lineText.indexOf("*/");
-
-    if (
-      blockCommentStart !== -1 &&
-      characterPosition >= blockCommentStart &&
-      (blockCommentEnd === -1 || characterPosition <= blockCommentEnd + 2)
-    ) {
-      const endPos =
-        blockCommentEnd !== -1 ? blockCommentEnd + 2 : lineText.length;
-      return {
-        text: lineText.substring(blockCommentStart, endPos),
-        start: blockCommentStart,
-        end: endPos,
-      };
+        // 현재 커서(offset)가 이 주석 범위 안에 포함되는지 확인
+        if (offset >= start && offset <= end) {
+            return new vscode.Range(
+                document.positionAt(start),
+                document.positionAt(end)
+            );
+        }
     }
 
     return null;
+  }
+
+  // 디바운싱 체크
+  private shouldTranslate(text: string, delay: number = 300): boolean {
+    const now = Date.now();
+    
+    if (this.lastHoverText === text && now - this.lastHoverTime < delay) {
+      return false;
+    }
+
+    this.lastHoverTime = now;
+    this.lastHoverText = text;
+    return true;
   }
 
   private isEnglishWord(word: string): boolean {
     return /^[a-zA-Z][a-zA-Z0-9]*$/.test(word);
   }
 
-  private createHoverMarkdown(
-    original: string,
-    translation: string,
-    type: string
-  ): vscode.Hover {
+  private createHoverMarkdown(original: string, translation: string, type: string): vscode.Hover {
     const markdown = new vscode.MarkdownString();
-
-    markdown.appendMarkdown(`**🇰🇷 한국어 번역 (${type})**\n\n`);
-    markdown.appendMarkdown(`**원문:** ${original}\n\n`);
-    markdown.appendMarkdown(`**번역:** \`${translation}\`\n\n`);
-    markdown.appendMarkdown(`---\n`);
-    markdown.appendMarkdown(`*Korean Translator Extension*`);
-
-    // 마크다운에서 HTML 사용 허용
+    markdown.appendMarkdown(`**🇰🇷 ${type} 번역**\n\n`);
+    markdown.appendMarkdown(`${translation}\n\n`); 
     markdown.isTrusted = true;
-
     return new vscode.Hover(markdown);
   }
 }
