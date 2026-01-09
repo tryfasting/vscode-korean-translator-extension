@@ -5,6 +5,8 @@ Note: 본 프로젝트는 Original Repository Name의 작업을 기반으로 하
 
 VS Code 환경에서 영문 주석, 변수명, 그리고 Python Docstring을 한국어로 번역하는 기능을 제공하는 확장 프로그램입니다.
 
+
+
 ## 🎯 개발 배경 및 주요 수정 사항 (Project Context & Modifications)
 
 본 프로젝트는 원본 리포지토리의 기능을 바탕으로, 특정 개발 환경에서의 요구 사항을 충족하고 성능을 효율화하기 위해 수정되었습니다.
@@ -18,6 +20,8 @@ VS Code 환경에서 영문 주석, 변수명, 그리고 Python Docstring을 한
 2. Python Docstring 지원 확장 (Enhanced Documentation Support)
 
 - Python 개발 환경에서 빈번히 사용되는 멀티라인 Docstring("""...""")의 인식률을 제고하기 위해, 전역 정규 표현식(Global RegExp) 스캔 방식을 도입하여 번역 적용 범위를 확장하였습니다.
+
+
 
 ## 🛠️ 설치 및 환경 설정 (Installation & Configuration)
 
@@ -49,11 +53,15 @@ npm run compile
 F5 (VS Code Debugging)
 ```
 
+
+
 ## 📖 주요 기능 (Key Features)
 
 - 스마트 호버 (Smart Hover): Python, JS/TS 파일 내 주석에 마우스 커서를 위치시킬 경우, 해당 영문 텍스트에 대한 한국어 번역을 제공합니다.
 
 - 선택 영역 번역 (Manual Translation): 텍스트를 선택한 후 Ctrl + Shift + T 단축키를 입력하면 즉시 번역 기능을 수행합니다.
+
+
 
 ## ⚖️ 라이선스 (License)
 
